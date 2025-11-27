@@ -10,8 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "puppeteer-core": "^23.6.0",
-    "@sparticuz/chromium": "^127.0.0",
+    "puppeteer-core": "^24.0.0",
+    "@sparticuz/chromium": "^131.0.0",
     "express": "^5.1.0",
     "axios": "^1.13.2"
   },
