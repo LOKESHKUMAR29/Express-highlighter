@@ -1,5 +1,6 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
+const chromium = require("@sparticuz/chromium");
 const axios = require("axios");
 
 const app = express();
@@ -11,8 +12,11 @@ app.use(express.static("public"));
 async function initBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
-      headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
   }
   return browser;
@@ -79,3 +83,5 @@ app.get("/proxy", async (req, res) => {
 app.listen(PORT, () =>
   console.log(`Proxy running → http://localhost:${PORT}/proxy?url=TARGET_URL`)
 );
+
+module.exports = app;
