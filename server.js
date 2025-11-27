@@ -1,6 +1,4 @@
 const express = require("express");
-const puppeteer = require("puppeteer-core");
-const chromium = require("@sparticuz/chromium");
 const axios = require("axios");
 
 const app = express();
@@ -11,13 +9,23 @@ app.use(express.static("public"));
 
 async function initBrowser() {
   if (!browser) {
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true,
-    });
+    if (process.env.VERCEL) {
+      const chromium = require("@sparticuz/chromium");
+      const puppeteer = require("puppeteer-core");
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+      });
+    } else {
+      const puppeteer = require("puppeteer");
+      browser = await puppeteer.launch({
+        headless: "new",
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+    }
   }
   return browser;
 }
