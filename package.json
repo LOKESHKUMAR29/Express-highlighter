@@ -16,7 +16,7 @@
     "puppeteer-core": "^22.6.0"
   },
   "engines": {
-    "node": "18.x"
+    "node": "20.x"
   },
   "devDependencies": {
     "puppeteer": "^24.31.0"
