@@ -1,12 +1,14 @@
 const express = require("express");
 const axios = require("axios");
+const path = require("path");
 const app = express();
 const PORT = 3000;
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
 app.use(async (req, res, next) => {
   if (req.path === "/proxy") return next();
+  if (req.path === "/highlight.js" || req.path === "/skills-output.json") return next();
 
   const referer = req.get("referer");
   if (!referer?.includes("/proxy?url=")) return next();
