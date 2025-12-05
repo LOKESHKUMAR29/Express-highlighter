@@ -135,6 +135,8 @@
     let el = node.parentElement;
     while (el) {
       if (
+        el.id === "customPopup" ||
+        el.id === "customPopupOverlay" ||
         el.classList?.contains(CONFIG.HIGHLIGHT_CLASS) ||
         CONFIG.EXCLUDED_TAGS.has(el.tagName) ||
         el.isContentEditable
