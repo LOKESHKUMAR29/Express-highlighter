@@ -35,7 +35,7 @@ app.get("/proxy", async (req, res) => {
     const target = req.query.url;
     if (!target) return res.status(400).send("Missing ?url=");
 
-    console.log("New Loading page:", target);
+    console.log("Loading page:", target);
 
     const response = await axios.get(target);
     let html = response.data;
