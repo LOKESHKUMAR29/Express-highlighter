@@ -88,7 +88,7 @@
     if (!qs("#customPopupOverlay")) {
       document.body.insertAdjacentHTML(
         "beforeend",
-        `<div id="customPopupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;backdrop-filter:blur(2px);"><div id="customPopup" style="position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;width:350px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.25);font-family:Arial,sans-serif;text-align:left;"><div id="popupContent" style="margin-bottom:15px;font-size:15px;"></div><button id="popupCloseBtn" style="padding:6px 14px;border:none;background:#333;color:white;border-radius:4px;cursor:pointer;">Close</button></div></div>`
+        `<div id="customPopupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;backdrop-filter:blur(2px);"><div id="customPopup" style="position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;width:350px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.25);font-family:Arial,sans-serif;text-align:left;"><div id="popupContent" style="margin-bottom:15px;font-size:15px;"></div><button id="popupCloseBtn" style="padding:6px 14px;border:none;background:#333;color:white;border-radius:4px;cursor:pointer;">Close</button></div></div>`
       );
       const overlay = qs("#customPopupOverlay");
       const closeBtn = qs("#popupCloseBtn");
