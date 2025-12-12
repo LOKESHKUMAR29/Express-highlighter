@@ -2,6 +2,32 @@ const axios = require("axios");
 const fs = require("fs").promises;
 const path = require("path");
 
+// Polyfill DOM APIs for pdfjs-dist in Node.js
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  globalThis.DOMMatrix = class DOMMatrix {
+    constructor() {
+      this.m = [1, 0, 0, 1, 0, 0];
+    }
+  };
+}
+
+if (typeof globalThis.Path2D === 'undefined') {
+  globalThis.Path2D = class Path2D {};
+}
+
+// Polyfill Canvas for pdfjs-dist
+const { createCanvas } = require('canvas');
+if (typeof globalThis.document === 'undefined') {
+  globalThis.document = {
+    createElement: (tag) => {
+      if (tag === 'canvas') {
+        return createCanvas(200, 200);
+      }
+      return {};
+    }
+  };
+}
+
 // Dynamic import for pdfjs-dist (ES Module)
 let pdfjsLib = null;
 
@@ -68,13 +94,16 @@ function findWordsInText(text, trie) {
 
 async function extractTextFromPDF(pdfUrl) {
   try {
-    // Initialize PDF.js
+    
     const pdfjs = await initPdfJs();
 
     const response = await axios.get(pdfUrl, {
       responseType: "arraybuffer",
       timeout: 30000,
       maxContentLength: 75 * 1024 * 1024,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
     });
 
     const pdfData = new Uint8Array(response.data);
@@ -114,7 +143,6 @@ async function loadSkillsData() {
     });
 
     TRIE_ROOT = buildTrie([...WORD_DATA_MAP.keys()]);
-    console.log(`Loaded ${WORD_DATA_MAP.size} skills for highlighting.`);
   } catch (error) {
     console.error("Failed to load skills data:", error);
     throw error;
