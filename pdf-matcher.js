@@ -1,9 +1,16 @@
-
 const axios = require("axios");
-const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.mjs");
 const fs = require("fs").promises;
 const path = require("path");
 
+// Dynamic import for pdfjs-dist (ES Module)
+let pdfjsLib = null;
+
+async function initPdfJs() {
+  if (!pdfjsLib) {
+    pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  }
+  return pdfjsLib;
+}
 
 class TrieNode {
   constructor() {
@@ -61,16 +68,18 @@ function findWordsInText(text, trie) {
 
 async function extractTextFromPDF(pdfUrl) {
   try {
+    // Initialize PDF.js
+    const pdfjs = await initPdfJs();
 
     const response = await axios.get(pdfUrl, {
       responseType: "arraybuffer",
       timeout: 30000,
-      maxContentLength: 75 * 1024 * 1024, // 50MB max
+      maxContentLength: 75 * 1024 * 1024,
     });
 
     const pdfData = new Uint8Array(response.data);
 
-    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+    const loadingTask = pdfjs.getDocument({ data: pdfData });
     const pdf = await loadingTask.promise;
 
     let fullText = "";
@@ -105,6 +114,7 @@ async function loadSkillsData() {
     });
 
     TRIE_ROOT = buildTrie([...WORD_DATA_MAP.keys()]);
+    console.log(`Loaded ${WORD_DATA_MAP.size} skills for highlighting.`);
   } catch (error) {
     console.error("Failed to load skills data:", error);
     throw error;
@@ -130,6 +140,7 @@ async function processPDFForSkills(pdfUrl) {
 
     // Find matches
     const allMatches = findWordsInText(pdfText, TRIE_ROOT);
+    
     // Deduplicate and count occurrences
     const uniqueSkills = new Map();
     allMatches.forEach((match) => {
@@ -145,7 +156,6 @@ async function processPDFForSkills(pdfUrl) {
       }
     });
 
-    // Sort by frequency
     const matchesArray = Array.from(uniqueSkills.values());
 
     const processingTime = Date.now() - startTime;
@@ -156,6 +166,7 @@ async function processPDFForSkills(pdfUrl) {
       success: true,
       matches: matchesArray,
       totalMatches: matchesArray.length,
+      processingTime: `${processingTime}ms`,
     };
   } catch (error) {
     const processingTime = Date.now() - startTime;
