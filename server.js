@@ -1,12 +1,17 @@
 const express = require("express");
+const cors = require("cors");
 const axios = require("axios");
 const path = require("path");
+const { loadSkillsData, processPDFForSkills} = require("./pdf-matcher");
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use(async (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
   if (req.path === "/proxy") return next();
   if (req.path === "/highlight.js" || req.path === "/skills-output.json") return next();
 
@@ -58,6 +63,40 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
-app.listen(PORT, () =>
-  console.log(`Proxy running → http://localhost:${PORT}/proxy?url=TARGET_URL`)
-);
+app.post("/api/process-pdf", async (req, res) => {
+  try {
+    const { pdfUrl } = req.body;
+
+    if (!pdfUrl) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing pdfUrl in request body",
+      });
+    }
+
+    console.log("PDF URL:", pdfUrl);
+
+    const result = await processPDFForSkills(pdfUrl);
+    res.json(result);
+  } catch (error) {
+    console.error("PDF processing error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to process PDF",
+    });
+  }
+});
+
+loadSkillsData()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+      console.log("Available endpoints:");
+      console.log("  POST /api/process-pdf");
+      console.log("  GET  /proxy?url=TARGET_URL");
+    });
+  })
+  .catch((error) => {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  });
