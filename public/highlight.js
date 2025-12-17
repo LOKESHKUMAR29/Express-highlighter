@@ -226,7 +226,18 @@
     const el = e.target.closest?.(`.${CONFIG.HIGHLIGHT_CLASS}`);
     if (el) {
       const word = el.textContent?.trim();
-      if (word) showWordPopup(word);
+      if (word) {
+        showWordPopup(word);
+
+        const data = WORD_DATA_MAP.get(word.toLowerCase());
+        if (window.parent) {
+          window.parent.postMessage({
+            type: 'OPEN_INFO_PANEL',
+            word: word,
+            data: data || {} 
+          }, '*');
+        }
+      }
     }
   });
 
