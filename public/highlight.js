@@ -2,10 +2,8 @@
   "use strict";
 
   let WORD_DATA_MAP = new Map(),
-    TRIE_ROOT = null,
     observer = null,
     observerScheduled = null,
-    attempts = 0,
     processedNodes = new WeakSet();
 
   const CONFIG = {
@@ -31,51 +29,7 @@
   const qs = (sel) => document.querySelector(sel);
   const isWordChar = (ch) => /\p{L}|\p{N}/u.test(ch);
 
-  class TrieNode {
-    constructor() {
-      this.children = new Map();
-      this.isWord = false;
-      this.word = null;
-    }
-  }
 
-  const buildTrie = (words) => {
-    const root = new TrieNode();
-    words.forEach((word) => {
-      let node = root;
-      for (const char of word.toLowerCase()) {
-        if (!node.children.has(char)) node.children.set(char, new TrieNode());
-        node = node.children.get(char);
-      }
-      node.isWord = true;
-      node.word = word.toLowerCase();
-    });
-    return root;
-  };
-
-  const findWordsInText = (text, trie) => {
-    const matches = [];
-    const lowerText = text.toLowerCase();
-    const len = lowerText.length;
-
-    for (let i = 0; i < len; i++) {
-      if (i > 0 && isWordChar(lowerText[i - 1])) continue;
-      let node = trie;
-      let j = i;
-      while (j < len && node.children.has(lowerText[j])) {
-        node = node.children.get(lowerText[j++]);
-        if (node.isWord && (j >= len || !isWordChar(lowerText[j]))) {
-          matches.push({
-            word: text.substring(i, j),
-            start: i,
-            end: j,
-            key: node.word,
-          });
-        }
-      }
-    }
-    return matches;
-  };
 
   const injectStylesAndPopup = () => {
     if (!qs("#highlightStyles")) {
@@ -177,9 +131,47 @@
     return fragment;
   };
 
-  const highlightWordsInContainer = async (container) => {
-    if (!TRIE_ROOT) return 0;
+    const processBatch = async (textNodes) => {
+      const texts = textNodes.map(n => n.nodeValue);
+      try {
+          const res = await fetch('/api/skill-match-batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ texts })
+          });
+          if (!res.ok) throw new Error('API Error');
+          const { results } = await res.json();
+          
+          let processedCount = 0;
+          results.forEach((matches, i) => {
+              if (!matches || matches.length === 0) {
+                  processedNodes.add(textNodes[i]);
+                  return;
+              }
+              
+              const textNode = textNodes[i];
+              // Store skill data for tooltips
+              matches.forEach(m => {
+                  if (m.data) WORD_DATA_MAP.set(m.key, m.data);
+              });
 
+              const fragment = processMatches(matches, texts[i]);
+              if (textNode.parentNode) {
+                  textNode.parentNode.replaceChild(fragment, textNode);
+                  processedCount++;
+              }
+          });
+          return processedCount;
+      } catch (err) {
+          console.error('Highlight error:', err);
+          return 0;
+      }
+    };
+
+    const highlightWordsInContainer = async (container) => {
+    // Only highlight if we haven't already initialized (or we are re-running). 
+    // In this new server-side model, we don't need to wait for TRIE_ROOT.
+      
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) =>
         processedNodes.has(node) ||
@@ -197,27 +189,15 @@
     const wasObserving = !!observer;
     if (wasObserving) observer.disconnect();
 
-    let processedCount = 0;
+    let totalProcessed = 0;
     for (let i = 0; i < nodesToProcess.length; i += CONFIG.BATCH_SIZE) {
-      nodesToProcess.slice(i, i + CONFIG.BATCH_SIZE).forEach((textNode) => {
-        const text = textNode.nodeValue;
-        const matches = findWordsInText(text, TRIE_ROOT);
-        if (matches.length === 0) {
-          processedNodes.add(textNode);
-          return;
-        }
-        const fragment = processMatches(matches, text);
-        if (textNode.parentNode) {
-          textNode.parentNode.replaceChild(fragment, textNode);
-          processedCount++;
-        }
-      });
-      if (i + CONFIG.BATCH_SIZE < nodesToProcess.length)
-        await new Promise((resolve) => setTimeout(resolve, 0));
+      const batch = nodesToProcess.slice(i, i + CONFIG.BATCH_SIZE);
+      const count = await processBatch(batch);
+      totalProcessed += count;
     }
 
     if (wasObserving) observer.observe(container, CONFIG.OBSERVE_OPTIONS);
-    return processedCount;
+    return totalProcessed;
   };
 
   const enableObserver = (container) => {
@@ -235,29 +215,13 @@
   const tryHighlight = async () => {
     const container = qs("main") || document.body;
     if (!container) return;
+    // We no longer rely on TRIE_ROOT, so we can start immediately
     const count = await highlightWordsInContainer(container);
-    attempts++;
-    if (count > 0 || attempts >= CONFIG.MAX_ATTEMPTS) enableObserver(container);
-    else setTimeout(tryHighlight, 200);
+    enableObserver(container); 
   };
 
   injectStylesAndPopup();
-
-  fetch(CONFIG.DATA_PATH)
-    .then((res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    })
-    .then((json) => {
-      json.forEach((item) => {
-        if (item.name) WORD_DATA_MAP.set(item.name.toLowerCase(), item);
-      });
-      TRIE_ROOT = buildTrie([...WORD_DATA_MAP.keys()]);
-      console.log(`Loaded ${WORD_DATA_MAP.size} skills for highlighting.`);
-      tryHighlight();
-    })
-    .catch((err) => console.error("Failed to load skills data:", err));
-
+  
   document.addEventListener("click", (e) => {
     const el = e.target.closest?.(`.${CONFIG.HIGHLIGHT_CLASS}`);
     if (el) {

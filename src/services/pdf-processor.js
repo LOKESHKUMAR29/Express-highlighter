@@ -1,7 +1,6 @@
 const axios = require("axios");
-const fs = require("fs").promises;
-const path = require("path");
 const { pathToFileURL } = require("url");
+const { findMatchesInText, loadSkillsData } = require("./skills-matcher");
 
 // Polyfill DOM APIs for pdfjs-dist in Node.js
 if (typeof globalThis.DOMMatrix === 'undefined') {
@@ -41,63 +40,8 @@ async function initPdfJs() {
   return pdfjsLib;
 }
 
-class TrieNode {
-  constructor() {
-    this.children = new Map();
-    this.isWord = false;
-    this.word = null;
-  }
-}
-
-function buildTrie(words) {
-  const root = new TrieNode();
-  words.forEach((word) => {
-    let node = root;
-    for (const char of word.toLowerCase()) {
-      if (!node.children.has(char)) {
-        node.children.set(char, new TrieNode());
-      }
-      node = node.children.get(char);
-    }
-    node.isWord = true;
-    node.word = word.toLowerCase();
-  });
-  return root;
-}
-
-function isWordChar(ch) {
-  return /\p{L}|\p{N}/u.test(ch);
-}
-
-function findWordsInText(text, trie) {
-  const matches = [];
-  const lowerText = text.toLowerCase();
-  const len = lowerText.length;
-
-  for (let i = 0; i < len; i++) {
-    if (i > 0 && isWordChar(lowerText[i - 1])) continue;
-
-    let node = trie;
-    let j = i;
-
-    while (j < len && node.children.has(lowerText[j])) {
-      node = node.children.get(lowerText[j++]);
-      if (node.isWord && (j >= len || !isWordChar(lowerText[j]))) {
-        matches.push({
-          word: text.substring(i, j),
-          start: i,
-          end: j,
-          key: node.word,
-        });
-      }
-    }
-  }
-  return matches;
-}
-
 async function extractTextFromPDF(pdfUrl) {
   try {
-    
     const pdfjs = await initPdfJs();
 
     const response = await axios.get(pdfUrl, {
@@ -110,7 +54,6 @@ async function extractTextFromPDF(pdfUrl) {
     });
 
     const pdfData = new Uint8Array(response.data);
-
     const loadingTask = pdfjs.getDocument({ data: pdfData });
     const pdf = await loadingTask.promise;
 
@@ -127,28 +70,6 @@ async function extractTextFromPDF(pdfUrl) {
   } catch (error) {
     console.error("PDF extraction error:", error.message);
     throw new Error(`Failed to extract text from PDF: ${error.message}`);
-  }
-}
-
-let WORD_DATA_MAP = new Map();
-let TRIE_ROOT = null;
-
-async function loadSkillsData() {
-  try {
-    const dataPath = path.join(__dirname, "public", "skills-output.json");
-    const rawData = await fs.readFile(dataPath, "utf-8");
-    const skills = JSON.parse(rawData);
-
-    skills.forEach((item) => {
-      if (item.name) {
-        WORD_DATA_MAP.set(item.name.toLowerCase(), item);
-      }
-    });
-
-    TRIE_ROOT = buildTrie([...WORD_DATA_MAP.keys()]);
-  } catch (error) {
-    console.error("Failed to load skills data:", error);
-    throw error;
   }
 }
 
@@ -169,29 +90,12 @@ async function processPDFForSkills(pdfUrl) {
       };
     }
 
-    // Find matches
-    const allMatches = findWordsInText(pdfText, TRIE_ROOT);
-    
-    // Deduplicate and count occurrences
-    const uniqueSkills = new Map();
-    allMatches.forEach((match) => {
-      if (!uniqueSkills.has(match.key)) {
-        const skillData = WORD_DATA_MAP.get(match.key);
-        if (skillData) {
-          uniqueSkills.set(match.key, {
-            name: skillData.name,
-            description: skillData.description,
-            skillType: skillData.skillType,
-          });
-        }
-      }
-    });
-
-    const matchesArray = Array.from(uniqueSkills.values());
+    await loadSkillsData();
+    // Use common logic to find matches
+    const matchesArray = findMatchesInText(pdfText);
 
     const processingTime = Date.now() - startTime;
-    console.log(`Found ${matchesArray.length} unique skills`);
-    console.log(`Processing time: ${processingTime}ms`);
+    console.log(`[PDFProcessor] Found ${matchesArray.length} unique skills`);
 
     return {
       success: true,
@@ -201,7 +105,7 @@ async function processPDFForSkills(pdfUrl) {
     };
   } catch (error) {
     const processingTime = Date.now() - startTime;
-    console.error("PDF processing error:", error);
+    console.error("[PDFProcessor] Error:", error);
 
     return {
       success: false,
@@ -212,6 +116,5 @@ async function processPDFForSkills(pdfUrl) {
 }
 
 module.exports = {
-  loadSkillsData,
   processPDFForSkills,
 };
