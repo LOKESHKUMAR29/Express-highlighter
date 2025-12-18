@@ -1,5 +1,10 @@
-const fs = require("fs").promises;
-const path = require("path");
+import { promises as fs } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// ESM __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let WORD_DATA_MAP = new Map();
 let TRIE_ROOT = null;
@@ -58,7 +63,7 @@ function findWordsInText(text, trie) {
   return matches;
 }
 
-async function loadSkillsData() {
+export async function loadSkillsData() {
   if (TRIE_ROOT) return; // Data already loaded
 
   try {
@@ -84,7 +89,7 @@ async function loadSkillsData() {
  * Finds skill matches in a single large text (e.g. PDF content).
  * Returns array of enriched match objects.
  */
-function findMatchesInText(text) {
+export function findMatchesInText(text) {
     if (!TRIE_ROOT) return [];
     
     const matches = findWordsInText(text, TRIE_ROOT);
@@ -114,7 +119,7 @@ function findMatchesInText(text) {
  * Finds matches in a batch of text snippets (for HTML highlighting).
  * Returns array of match arrays, maintaining 1:1 index correspondence.
  */
-function findMatchesInTextBatch(texts) {
+export function findMatchesInTextBatch(texts) {
     if (!TRIE_ROOT) {
         return texts.map(() => []);
     }
@@ -131,9 +136,3 @@ function findMatchesInTextBatch(texts) {
         });
     });
 }
-
-module.exports = {
-  loadSkillsData,
-  findMatchesInText,
-  findMatchesInTextBatch
-};

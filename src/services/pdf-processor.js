@@ -1,6 +1,10 @@
-const axios = require("axios");
-const { pathToFileURL } = require("url");
-const { findMatchesInText, loadSkillsData } = require("./skills-matcher");
+import axios from "axios";
+import { pathToFileURL } from "url";
+import { findMatchesInText, loadSkillsData } from "./skills-matcher.js";
+import { createRequire } from "module";
+
+// Create require for CJS modules if needed (canvas might need it depending on version, but we import it)
+const require = createRequire(import.meta.url);
 
 // Polyfill DOM APIs for pdfjs-dist in Node.js
 if (typeof globalThis.DOMMatrix === 'undefined') {
@@ -16,7 +20,7 @@ if (typeof globalThis.Path2D === 'undefined') {
 }
 
 // Polyfill Canvas for pdfjs-dist
-const { createCanvas } = require('canvas');
+import { createCanvas } from 'canvas';
 if (typeof globalThis.document === 'undefined') {
   globalThis.document = {
     createElement: (tag) => {
@@ -34,8 +38,8 @@ let pdfjsLib = null;
 async function initPdfJs() {
   if (!pdfjsLib) {
     pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const workerPath = require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).toString();
+    const workerPath = import.meta.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
   }
   return pdfjsLib;
 }
@@ -73,7 +77,7 @@ async function extractTextFromPDF(pdfUrl) {
   }
 }
 
-async function processPDFForSkills(pdfUrl) {
+export async function processPDFForSkills(pdfUrl) {
   const startTime = Date.now();
 
   try {
@@ -114,7 +118,3 @@ async function processPDFForSkills(pdfUrl) {
     };
   }
 }
-
-module.exports = {
-  processPDFForSkills,
-};
